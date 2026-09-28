@@ -1,48 +1,64 @@
-#!/bin/bash
-set -e
+1. Cập nhật và cài đặt thư viện
 
-echo "=== [1/5] Cài đặt công cụ lập trình và thư viện phụ thuộc ==="
 sudo apt-get update
+
 sudo apt-get install -y build-essential libpcre2-dev zlib1g-dev libssl-dev curl wget
 
-NGINX_VER="1.26.1"
+2. Tải NGINX 1.26.1
+
+cd /tmp
+
+wget -q -c http://nginx.org/download/nginx-1.26.1.tar.gz
+
+rm -rf nginx-1.26.1
+
+tar -xzf nginx-1.26.1.tar.gz
+
+cd nginx-1.26.1
+
+3. Sửa Server Signature
+
 CUSTOM_SERVER_NAME="Custom-SecureGateway/1.0"
 
-echo "=== [2/5] Tải mã nguồn NGINX ${NGINX_VER} ==="
-cd /tmp
-wget -q -c http://nginx.org/download/nginx-${NGINX_VER}.tar.gz
-rm -rf nginx-${NGINX_VER}
-tar -xzf nginx-${NGINX_VER}.tar.gz
-cd nginx-${NGINX_VER}
+sed -i '14c\#define NGINX_VER          "Custom-SecureGateway/1.0"' src/core/nginx.h
 
-echo "=== [3/5] Can thiệp mã nguồn C để đổi Server Signature ==="
-sed -i "s/#define NGINX_VER          \"nginx\/\" NGINX_VERSION/#define NGINX_VER          \"${CUSTOM_SERVER_NAME}\"/" src/core/nginx.h
-sed -i "s/#define NGINX_VAR          \"NGINX\"/#define NGINX_VAR          \"Custom-SecureGateway\"/" src/core/nginx.h
+sed -i 's|#define NGINX_VAR          "NGINX"|#define NGINX_VAR          "Custom-SecureGateway"|' src/core/nginx.h
 
-HEADER_FILE="src/http/ngx_http_header_filter_module.c"
-sed -i "s/static u_char ngx_http_server_string\[\] = \"Server: nginx\" CRLF;/static u_char ngx_http_server_string\[\] = \"Server: ${CUSTOM_SERVER_NAME}\" CRLF;/" $HEADER_FILE
-sed -i "s/static u_char ngx_http_server_full_string\[\] = \"Server: \" NGINX_VER CRLF;/static u_char ngx_http_server_full_string\[\] = \"Server: ${CUSTOM_SERVER_NAME}\" CRLF;/" $HEADER_FILE
+sed -i '49c\static u_char ngx_http_server_string[] = "Server: Custom-SecureGateway/1.0" CRLF;' src/http/ngx_http_header_filter_module.c
 
-echo "=== [4/5] Cấu hình và Biên dịch NGINX ==="
+sed -i '50c\static u_char ngx_http_server_full_string[] = "Server: Custom-SecureGateway/1.0" CRLF;' src/http/ngx_http_header_filter_module.c
+
+grep -n "NGINX_" src/core/nginx.h
+
+sed -n '49,50p' src/http/ngx_http_header_filter_module.c
+
+4. Configure NGINX
+
 ./configure \
-   --prefix=/etc/nginx \
-   --sbin-path=/usr/local/bin/nginx \
-   --conf-path=/etc/nginx/nginx.conf \
-   --error-log-path=/var/log/nginx/error.log \
-   --http-log-path=/var/log/nginx/access.log \
-   --pid-path=/var/run/nginx.pid \
-   --with-pcre \
-   --with-http_ssl_module \
-   --with-http_realip_module \
-   --with-http_stub_status_module
+--prefix=/etc/nginx \
+--sbin-path=/usr/local/bin/nginx \
+--conf-path=/etc/nginx/nginx.conf \
+--error-log-path=/var/log/nginx/error.log \
+--http-log-path=/var/log/nginx/access.log \
+--pid-path=/var/run/nginx.pid \
+--with-pcre \
+--with-http_ssl_module \
+--with-http_realip_module \
+--with-http_stub_status_module
+
+5. Build và cài đặt
 
 make -j$(nproc)
+
 sudo make install
 
-echo "=== [5/5] Cấu hình Dịch vụ Systemd và NGINX.conf ==="
+6. Tạo thư mục cấu hình và log
+
 sudo mkdir -p /var/log/nginx /etc/nginx/conf.d
 
-sudo tee /etc/systemd/system/nginx.service << 'UNIT'
+7. Tạo systemd service
+
+sudo tee /etc/systemd/system/nginx.service > /dev/null << 'EOF'
 [Unit]
 Description=The Custom NGINX HTTP and reverse proxy server
 After=syslog.target network-online.target remote-fs.target nss-lookup.target
@@ -59,10 +75,13 @@ PrivateTmp=true
 
 [Install]
 WantedBy=multi-user.target
-UNIT
+EOF
 
-sudo tee /etc/nginx/nginx.conf << 'CONF'
+8. Tạo nginx.conf
+
+sudo tee /etc/nginx/nginx.conf > /dev/null << 'EOF'
 worker_processes auto;
+
 pid /var/run/nginx.pid;
 
 events {
@@ -70,14 +89,22 @@ events {
 }
 
 http {
-    include       mime.types;
-    default_type  application/octet-stream;
-    sendfile        on;
+    include mime.types;
+    default_type application/octet-stream;
+    sendfile on;
 
     include /etc/nginx/conf.d/*.conf;
 }
-CONF
+EOF
+
+9. Kiểm tra và khởi động NGINX
+
+sudo /usr/local/bin/nginx -t
 
 sudo systemctl daemon-reload
+
 sudo systemctl enable --now nginx
-echo "=== BIÊN DỊCH VÀ CÀI ĐẶT NGINX HOÀN TẤT ==="
+
+sudo systemctl status nginx --no-pager
+
+curl -I http://localhost
