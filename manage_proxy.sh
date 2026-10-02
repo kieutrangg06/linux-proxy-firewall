@@ -1,5 +1,6 @@
 #!/bin/bash
-CONF_FILE="/etc/nginx/conf.d/loadbalancer.conf"
+set -euo pipefail
+UPSTREAM_FILE="/etc/nginx/sv2/upstream.conf"
 
 show_menu() {
     clear
@@ -11,67 +12,67 @@ show_menu() {
     echo "3. Chuyển sang CHỈ DÙNG Server 2 (Đỏ)"
     echo "4. Đổi thuật toán sang IP Hash"
     echo "5. Kiểm tra cú pháp NGINX"
-    echo "6. Xem cấu hình hiện tại"
+    echo "6. Xem file cấu hình upstream hiện tại"
     echo "0. Thoát"
     echo "=================================================="
     read -p "Chọn chức năng [0-6]: " choice
 }
 
-write_config() {
-    local upstream_content="$1"
-    sudo tee $CONF_FILE > /dev/null << CONF
-upstream backend_cluster {
-    $upstream_content
-}
-
-server {
-    listen 80;
-    server_name _;
-    return 301 https://\$host\$request_uri;
-}
-
-server {
-    listen 443 ssl;
-    server_name _;
-
-    ssl_certificate /etc/nginx/ssl/nginx.crt;
-    ssl_certificate_key /etc/nginx/ssl/nginx.key;
-
-    location / {
-        limit_req zone=anti_dos burst=10 nodelay;
-        proxy_pass http://backend_cluster;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header Connection "";
-    }
-}
-CONF
-    sudo /usr/local/bin/nginx -t && sudo systemctl restart nginx
+apply_config() {
+    sudo /usr/local/bin/nginx -t
+    sudo systemctl reload nginx
     echo "=> Cập nhật cấu hình thành công!"
     sleep 2
 }
 
 while true; do
     show_menu
-    case $choice in
+    case "$choice" in
         1)
-            write_config "server 127.0.0.1:8081;\n    server 127.0.0.1:8082;"
+            sudo tee "$UPSTREAM_FILE" > /dev/null << 'UPSTREAM'
+upstream backend_cluster {
+    server 127.0.0.1:8081 max_fails=1 fail_timeout=10s;
+    server 127.0.0.1:8082 max_fails=1 fail_timeout=10s;
+}
+UPSTREAM
+            apply_config
             ;;
         2)
-            write_config "server 127.0.0.1:8081;\n    server 127.0.0.1:8082 down;"
+            sudo tee "$UPSTREAM_FILE" > /dev/null << 'UPSTREAM'
+upstream backend_cluster {
+    server 127.0.0.1:8081 max_fails=1 fail_timeout=10s;
+    server 127.0.0.1:8082 down;
+}
+UPSTREAM
+            apply_config
             ;;
         3)
-            write_config "server 127.0.0.1:8081 down;\n    server 127.0.0.1:8082;"
+            sudo tee "$UPSTREAM_FILE" > /dev/null << 'UPSTREAM'
+upstream backend_cluster {
+    server 127.0.0.1:8081 down;
+    server 127.0.0.1:8082 max_fails=1 fail_timeout=10s;
+}
+UPSTREAM
+            apply_config
             ;;
         4)
-            write_config "ip_hash;\n    server 127.0.0.1:8081;\n    server 127.0.0.1:8082;"
+            sudo tee "$UPSTREAM_FILE" > /dev/null << 'UPSTREAM'
+upstream backend_cluster {
+    ip_hash;
+    server 127.0.0.1:8081;
+    server 127.0.0.1:8082;
+}
+UPSTREAM
+            apply_config
             ;;
         5)
             sudo /usr/local/bin/nginx -t
             read -p "Nhấn Enter tiếp tục..."
             ;;
         6)
-            cat $CONF_FILE
+            echo "--- Nội dung $UPSTREAM_FILE ---"
+            cat "$UPSTREAM_FILE"
+            echo "-----------------------------------"
             read -p "Nhấn Enter tiếp tục..."
             ;;
         0)

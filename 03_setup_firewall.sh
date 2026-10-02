@@ -1,11 +1,4 @@
 #!/bin/bash
-
-# ==========================================================
-# setup_firewall.sh
-# Cấu hình Firewall UFW cho hệ thống NGINX Reverse Proxy
-# Phụ trách: SV3
-# ==========================================================
-
 set -euo pipefail
 
 echo "=========================================================="
@@ -27,7 +20,7 @@ echo "[4/7] Mở cổng HTTP 80 và HTTPS 443..."
 sudo ufw allow 80/tcp comment 'HTTP Proxy Port'
 sudo ufw allow 443/tcp comment 'HTTPS Proxy Port'
 
-echo "[5/7] Chặn truy cập trực tiếp Backend..."
+echo "[5/7] Chặn truy cập trực tiếp Backend (và ghi log)..."
 sudo ufw deny log 8081/tcp comment 'Block Direct Backend 1'
 sudo ufw deny log 8082/tcp comment 'Block Direct Backend 2'
 
@@ -41,28 +34,7 @@ echo
 echo "=========================================================="
 echo "             TRẠNG THÁI FIREWALL"
 echo "=========================================================="
-
 sudo ufw status verbose
-
 echo
-echo "=========================================================="
-echo "             DANH SÁCH RULE UFW"
-echo "=========================================================="
-
 sudo ufw status numbered
-
-echo
-echo "=========================================================="
-echo "     TƯỜNG LỬA ĐÃ THIẾT LẬP THÀNH CÔNG"
-echo "=========================================================="
-
-echo
-echo "Các cổng được phép:"
-echo "  22   -> SSH"
-echo "  80   -> HTTP"
-echo "  443  -> HTTPS"
-echo
-echo "Các cổng Backend bị chặn:"
-echo "  8081 -> Backend 1"
-echo "  8082 -> Backend 2"
-echo
+echo "=== [SV3] HOÀN TẤT THIẾT LẬP TƯỜNG LỬA BẢO VỆ ==="
