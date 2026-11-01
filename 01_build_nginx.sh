@@ -5,6 +5,10 @@ echo "=========================================================="
 echo "   [SV1] CÀI ĐẶT THƯ VIỆN, CAN THIỆP CODE C & BUILD NGINX"
 echo "=========================================================="
 
+# 1. Dừng và gỡ Nginx cũ của Ubuntu nếu có để tránh xung đột cổng 80
+sudo systemctl stop nginx 2>/dev/null || true
+
+# 2. Cài đặt các gói phụ thuộc để biên dịch
 sudo apt-get update
 sudo apt-get install -y build-essential libpcre2-dev zlib1g-dev libssl-dev curl wget
 
@@ -18,10 +22,11 @@ tar -xzf "nginx-${NGINX_VER}.tar.gz"
 cd "nginx-${NGINX_VER}"
 
 echo "--> Can thiệp mã nguồn C để đổi Server Signature..."
-sed -i 's|#define NGINX_VER          "nginx/" NGINX_VERSION|#define NGINX_VER          "Custom-SecureGateway/1.0"|' src/core/nginx.h
-sed -i 's|#define NGINX_VAR          "NGINX"|#define NGINX_VAR          "Custom-SecureGateway"|' src/core/nginx.h
-sed -i 's|static u_char ngx_http_server_string\[\] = "Server: nginx" CRLF;|static u_char ngx_http_server_string[] = "Server: Custom-SecureGateway/1.0" CRLF;|' src/http/ngx_http_header_filter_module.c
-sed -i 's|static u_char ngx_http_server_full_string\[\] = "Server: " NGINX_VER CRLF;|static u_char ngx_http_server_full_string[] = "Server: Custom-SecureGateway/1.0" CRLF;|' src/http/ngx_http_header_filter_module.c
+# Dùng regex linh hoạt khoảng trắng, đảm bảo 100% khớp đúng vị trí
+sed -i -E 's|#define NGINX_VER[[:space:]]+.*|#define NGINX_VER          "Custom-SecureGateway/1.0"|' src/core/nginx.h
+sed -i -E 's|#define NGINX_VAR[[:space:]]+.*|#define NGINX_VAR          "Custom-SecureGateway"|' src/core/nginx.h
+sed -i -E 's|static u_char ngx_http_server_string\[\] = "Server: nginx" CRLF;|static u_char ngx_http_server_string[] = "Server: Custom-SecureGateway/1.0" CRLF;|' src/http/ngx_http_header_filter_module.c
+sed -i -E 's|static u_char ngx_http_server_full_string\[\] = "Server: " NGINX_VER CRLF;|static u_char ngx_http_server_full_string[] = "Server: Custom-SecureGateway/1.0" CRLF;|' src/http/ngx_http_header_filter_module.c
 
 echo "--> Cấu hình tham số biên dịch..."
 ./configure \
