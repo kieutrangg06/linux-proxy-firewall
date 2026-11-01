@@ -17,13 +17,7 @@ NGINX_WAS_ACTIVE=false
 usage() {
     cat <<'USAGE'
 SV2 - Backend BLUE/RED va HTTPS
-
 sudo bash 02_setup_backends_and_ssl.sh [--prepare-only] [--server-ip IPV4] [--renew-cert]
-
-  --prepare-only    Dung backend va certificate, khong can/cham vao NGINX.
-  --server-ip IPV4  Them IP may ao vao SAN cua certificate va server_name.
-  --renew-cert      Tao lai certificate/key, sao luu ban cu truoc khi thay.
-  --help            Xem huong dan, khong can root.
 USAGE
 }
 
@@ -314,7 +308,7 @@ for attempt in {1..12}; do
     elif [[ "$response" == *'SERVER BACKEND 02 - RED'* ]]; then
         seen_red=true
     fi
-    sleep 0.2
+    sleep 0.3
 done
 [[ "$seen_blue" == true && "$seen_red" == true ]] || fail "Chua thay du ca BLUE va RED qua HTTPS."
 systemctl enable nginx.service
