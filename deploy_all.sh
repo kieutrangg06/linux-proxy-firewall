@@ -5,11 +5,13 @@ echo "=================================================================="
 echo "   BẮT ĐẦU TRIỂN KHAI TOÀN BỘ HỆ THỐNG PROXY & FIREWALL"
 echo "=================================================================="
 
+[[ $EUID -eq 0 ]] || { echo "Vui lòng chạy bằng: sudo ./deploy_all.sh" >&2; exit 1; }
+
 chmod +x 01_build_nginx.sh 02_setup_backends_and_ssl.sh 03_setup_firewall.sh manage_proxy.sh log_analyzer.sh
 
-sudo ./01_build_nginx.sh
-sudo ./02_setup_backends_and_ssl.sh
-sudo ./03_setup_firewall.sh
+./01_build_nginx.sh
+./02_setup_backends_and_ssl.sh
+./03_setup_firewall.sh
 
 echo
 echo "=================================================================="
