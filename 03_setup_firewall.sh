@@ -1,40 +1,41 @@
 #!/bin/bash
 set -euo pipefail
 
+MODE="local"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --mode) MODE="$2"; shift 2 ;;
+        *) shift ;;
+    esac
+done
+
 echo "=========================================================="
-echo "       CẤU HÌNH FIREWALL UFW - SV3"
+echo "   [SV3] THIẾT LẬP TƯỜNG LỬA UFW TRÊN GATEWAY (NODE 1)"
 echo "=========================================================="
 
-echo "[1/7] Cài đặt UFW..."
 sudo apt-get update
 sudo apt-get install -y ufw
 
-echo "[2/7] Thiết lập chính sách mặc định..."
+echo "--> Thiết lập chính sách mặc định: Chặn toàn bộ Ingress, cho phép Egress..."
+sudo ufw --force reset
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 
-echo "[3/7] Mở cổng SSH 22..."
-sudo ufw allow 22/tcp comment 'SSH Port'
+echo "--> Mở cổng SSH quản trị (22), HTTP (80) và HTTPS (443)..."
+sudo ufw allow 22/tcp comment 'SSH Management'
+sudo ufw allow 80/tcp comment 'HTTP 301 Redirect'
+sudo ufw allow 443/tcp comment 'HTTPS Reverse Proxy'
 
-echo "[4/7] Mở cổng HTTP 80 và HTTPS 443..."
-sudo ufw allow 80/tcp comment 'HTTP Proxy Port'
-sudo ufw allow 443/tcp comment 'HTTPS Proxy Port'
+if [[ "$MODE" == "local" ]]; then
+    echo "--> Chặn và ghi log truy cập trực tiếp tới các cổng Backend cục bộ..."
+    sudo ufw deny log 8081/tcp comment 'Block Direct Local Backend 1'
+    sudo ufw deny log 8082/tcp comment 'Block Direct Local Backend 2'
+fi
 
-echo "[5/7] Chặn truy cập trực tiếp Backend (và ghi log)..."
-sudo ufw deny log 8081/tcp comment 'Block Direct Backend 1'
-sudo ufw deny log 8082/tcp comment 'Block Direct Backend 2'
-
-echo "[6/7] Bật UFW Logging..."
+echo "--> Bật UFW logging mức độ medium để trích xuất telemetry..."
 sudo ufw logging medium
-
-echo "[7/7] Kích hoạt UFW..."
-sudo ufw --force enable
+echo "y" | sudo ufw enable
 
 echo
-echo "=========================================================="
-echo "             TRẠNG THÁI FIREWALL"
-echo "=========================================================="
 sudo ufw status verbose
-echo
-sudo ufw status numbered
-echo "=== [SV3] HOÀN TẤT THIẾT LẬP TƯỜNG LỬA BẢO VỆ ==="
+echo "=== [SV3] HOÀN TẤT CẤU HÌNH TƯỜNG LỬA BẢO VỆ ==="
