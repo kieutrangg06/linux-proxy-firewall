@@ -10,32 +10,32 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo "=========================================================="
-echo "   [SV3] THIẾT LẬP TƯỜNG LỬA UFW TRÊN GATEWAY (NODE 1)"
+echo "   [SV3] CONFIGURE UFW FIREWALL ON GATEWAY (NODE 1)"
 echo "=========================================================="
 
 sudo apt-get update
 sudo apt-get install -y ufw
 
-echo "--> Thiết lập chính sách mặc định: Chặn toàn bộ Ingress, cho phép Egress..."
+echo "--> Setting default policies: Deny all incoming (Ingress), allow outgoing (Egress)..."
 sudo ufw --force reset
 sudo ufw default deny incoming
 sudo ufw default allow outgoing
 
-echo "--> Mở cổng SSH quản trị (22), HTTP (80) và HTTPS (443)..."
+echo "--> Allowing SSH management (22), HTTP (80), and HTTPS (443)..."
 sudo ufw allow 22/tcp comment 'SSH Management'
 sudo ufw allow 80/tcp comment 'HTTP 301 Redirect'
 sudo ufw allow 443/tcp comment 'HTTPS Reverse Proxy'
 
 if [[ "$MODE" == "local" ]]; then
-    echo "--> Chặn và ghi log truy cập trực tiếp tới các cổng Backend cục bộ..."
+    echo "--> Blocking and logging direct access to local Backend ports..."
     sudo ufw deny log 8081/tcp comment 'Block Direct Local Backend 1'
     sudo ufw deny log 8082/tcp comment 'Block Direct Local Backend 2'
 fi
 
-echo "--> Bật UFW logging mức độ medium để trích xuất telemetry..."
+echo "--> Enabling UFW logging at medium level for telemetry collection..."
 sudo ufw logging medium
 echo "y" | sudo ufw enable
 
 echo
 sudo ufw status verbose
-echo "=== [SV3] HOÀN TẤT CẤU HÌNH TƯỜNG LỬA BẢO VỆ ==="
+echo "=== [SV3] FIREWALL CONFIGURATION COMPLETED ==="

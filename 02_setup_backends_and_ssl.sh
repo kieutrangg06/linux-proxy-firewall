@@ -17,24 +17,24 @@ while [[ $# -gt 0 ]]; do
         --backend1) BACKEND1_IP="$2"; shift 2 ;;
         --backend2) BACKEND2_IP="$2"; shift 2 ;;
         --gateway-ip) GATEWAY_IP="$2"; shift 2 ;;
-        *) echo "Lỗi: Tham số không hợp lệ: $1" >&2; exit 1 ;;
+        *) echo "Error: Invalid argument: $1" >&2; exit 1 ;;
     esac
 done
 
-[[ $EUID -eq 0 ]] || { echo "Cần chạy bằng sudo!" >&2; exit 1; }
+[[ $EUID -eq 0 ]] || { echo "Please run with sudo!" >&2; exit 1; }
 
-# Tự động lấy IP Gateway nếu chưa truyền vào
+# Auto-detect Gateway IP if not provided
 if [[ -z "$GATEWAY_IP" ]]; then
     GATEWAY_IP=$(hostname -I | awk '{print $1}')
 fi
 
 echo "=========================================================="
-echo "   [SV2] THIẾT LẬP CỤM BACKENDS VÀ BẢO MẬT HTTPS ($MODE)"
+echo "   [SV2] SETUP BACKEND CLUSTER AND HTTPS SECURITY ($MODE)"
 echo "=========================================================="
 
-# 1. Quản lý Backend Services
+# 1. Manage Backend Services
 if [[ "$MODE" == "local" ]]; then
-    echo "--> [1/4] Khởi tạo 2 Web Backend nội bộ (Python Loopback)..."
+    echo "--> [1/4] Initializing 2 local Web Backends (Python Loopback)..."
     for b in 1 2; do
         port=$((8080 + b))
         color=$([[ $b -eq 1 ]] && echo "BLUE" || echo "RED")
@@ -73,16 +73,16 @@ UNIT
     BACKEND1_TARGET="127.0.0.1:8081"
     BACKEND2_TARGET="127.0.0.1:8082"
 else
-    echo "--> [1/4] Chế độ Phân tán (3 Máy): Dừng backend local (nếu có) và trỏ tới 2 Node từ xa..."
+    echo "--> [1/4] Distributed Mode (3-Machine Cluster): Stopping local backends (if any) and pointing to 2 remote nodes..."
     systemctl stop backend1.service backend2.service 2>/dev/null || true
     systemctl disable backend1.service backend2.service 2>/dev/null || true
-    # Chuẩn hóa cổng :80 nếu người dùng chỉ nhập IP
+    # Default to port :80 if the user only provides an IP
     [[ "$BACKEND1_IP" =~ : ]] && BACKEND1_TARGET="$BACKEND1_IP" || BACKEND1_TARGET="${BACKEND1_IP}:80"
     [[ "$BACKEND2_IP" =~ : ]] && BACKEND2_TARGET="$BACKEND2_IP" || BACKEND2_TARGET="${BACKEND2_IP}:80"
 fi
 
-# 2. Tạo chứng chỉ SSL X.509 hỗ trợ RFC 5280 SAN
-echo "--> [2/4] Khởi tạo chứng chỉ SSL/TLS có mở rộng SAN..."
+# 2. Generate X.509 SSL certificate with RFC 5280 SAN support
+echo "--> [2/4] Generating SSL/TLS certificate with SAN extension..."
 mkdir -p "$SSL_DIR"
 SAN_CONFIG="DNS:localhost,IP:127.0.0.1"
 if [[ -n "$GATEWAY_IP" && "$GATEWAY_IP" != "127.0.0.1" ]]; then
@@ -96,8 +96,8 @@ openssl req -x509 -nodes -sha256 -days 365 -newkey rsa:2048 \
 chmod 600 "$SSL_DIR/server.key"
 chmod 644 "$SSL_DIR/server.crt"
 
-# 3. Tạo cấu hình Upstream và VirtualHost NGINX
-echo "--> [3/4] Cấu hình Upstream tách biệt và VirtualHost HTTPS Gateway..."
+# 3. Create NGINX Upstream and VirtualHost configurations
+echo "--> [3/4] Configuring separate Upstream and HTTPS Gateway VirtualHost..."
 mkdir -p /etc/nginx/sv2 /etc/nginx/conf.d
 
 cat > "$UPSTREAM_FILE" <<UPSTREAM
@@ -148,10 +148,10 @@ server {
 }
 NGINX_CONF
 
-# 4. Kiểm tra cú pháp và kích hoạt NGINX
-echo "--> [4/4] Kiểm tra cú pháp và kích hoạt NGINX..."
+# 4. Test configuration syntax and enable NGINX
+echo "--> [4/4] Testing NGINX configuration and starting service..."
 "$NGINX_BIN" -t
 systemctl restart nginx.service
 systemctl enable nginx.service
 
-echo "=== [SV2] HOÀN TẤT THIẾT LẬP CỤM BACKENDS VÀ BẢO MẬT HTTPS ==="
+echo "=== [SV2] BACKEND CLUSTER AND HTTPS SECURITY SETUP COMPLETED ==="

@@ -3,7 +3,7 @@ set -euo pipefail
 UPSTREAM_FILE="/etc/nginx/sv2/upstream.conf"
 
 get_current_backends() {
-    # Tự động trích xuất 2 node backend đang có trong upstream.conf
+    # Automatically extract the 2 backend nodes currently in upstream.conf
     SERVERS=($(grep -E '^[[:space:]]*server[[:space:]]+' "$UPSTREAM_FILE" | awk '{print $2}' | tr -d ';' || true))
     NODE1="${SERVERS[0]:-127.0.0.1:8081}"
     NODE2="${SERVERS[1]:-127.0.0.1:8082}"
@@ -12,7 +12,7 @@ get_current_backends() {
 apply_config() {
     sudo /usr/local/bin/nginx -t
     sudo systemctl reload nginx
-    echo "=> Cập nhật cấu hình thành công! (Zero-Downtime Reload)"
+    echo "=> Configuration updated successfully! (Zero-Downtime Reload)"
     sleep 2
 }
 
@@ -22,20 +22,20 @@ show_menu() {
     echo "=================================================="
     echo "         AUTOMATION PROXY MANAGEMENT SCRIPT         "
     echo "=================================================="
-    echo " Node 1 hiện tại: $NODE1"
-    echo " Node 2 hiện tại: $NODE2"
+    echo " Current Node 1: $NODE1"
+    echo " Current Node 2: $NODE2"
     echo "--------------------------------------------------"
-    echo "1. Cân bằng tải Round Robin (Bật cả 2 Server)"
-    echo "2. Chuyển sang CHỈ DÙNG Server 1"
-    echo "3. Chuyển sang CHỈ DÙNG Server 2"
-    echo "4. Đổi thuật toán sang IP Hash (Session Persistence)"
-    echo "5. Nhập IP cụm 3 Máy (Chuyển sang phân tán)"
-    echo "6. Chuyển về cụm Local (127.0.0.1:8081/8082)"
-    echo "7. Kiểm tra cú pháp NGINX (nginx -t)"
-    echo "8. Xem nội dung file upstream.conf"
-    echo "0. Thoát"
+    echo "1. Round Robin Load Balancing (Enable Both Servers)"
+    echo "2. Switch to Server 1 ONLY"
+    echo "3. Switch to Server 2 ONLY"
+    echo "4. Switch Algorithm to IP Hash (Session Persistence)"
+    echo "5. Enter 3-Machine Cluster IPs (Switch to Distributed Mode)"
+    echo "6. Switch to Local Cluster (127.0.0.1:8081/8082)"
+    echo "7. Test NGINX Configuration (nginx -t)"
+    echo "8. View upstream.conf Contents"
+    echo "0. Exit"
     echo "=================================================="
-    read -p "Chọn chức năng [0-8]: " choice
+    read -p "Select an option [0-8]: " choice
 }
 
 while true; do
@@ -79,9 +79,9 @@ UPSTREAM
             apply_config
             ;;
         5)
-            echo "--- THIẾT LẬP IP MÔ HÌNH 3 MÁY PHÂN TÁN ---"
-            read -p "Nhập IP Máy 2 (Backend 1 - BLUE): " IP2
-            read -p "Nhập IP Máy 3 (Backend 2 - RED): " IP3
+            echo "--- CONFIGURE 3-MACHINE DISTRIBUTED CLUSTER IPs ---"
+            read -p "Enter Machine 2 IP (Backend 1 - BLUE): " IP2
+            read -p "Enter Machine 3 IP (Backend 2 - RED): " IP3
             [[ "$IP2" =~ : ]] || IP2="${IP2}:80"
             [[ "$IP3" =~ : ]] || IP3="${IP3}:80"
             sudo tee "$UPSTREAM_FILE" > /dev/null <<UPSTREAM
@@ -104,19 +104,19 @@ UPSTREAM
             ;;
         7)
             sudo /usr/local/bin/nginx -t
-            read -p "Nhấn Enter tiếp tục..."
+            read -p "Press Enter to continue..."
             ;;
         8)
-            echo "--- Nội dung $UPSTREAM_FILE ---"
+            echo "--- Contents of $UPSTREAM_FILE ---"
             cat "$UPSTREAM_FILE"
             echo "-----------------------------------"
-            read -p "Nhấn Enter tiếp tục..."
+            read -p "Press Enter to continue..."
             ;;
         0)
             exit 0
             ;;
         *)
-            echo "Lựa chọn không hợp lệ!"; sleep 1
+            echo "Invalid option!"; sleep 1
             ;;
     esac
 done

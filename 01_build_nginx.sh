@@ -2,13 +2,13 @@
 set -euo pipefail
 
 echo "=========================================================="
-echo "   [SV1] CÀI ĐẶT THƯ VIỆN, CAN THIỆP CODE C & BUILD NGINX"
+echo "   [SV1] INSTALL DEPENDENCIES, PATCH C SOURCE & BUILD NGINX"
 echo "=========================================================="
 
-# 1. Dừng Nginx cũ của Ubuntu nếu có
+# 1. Stop existing Ubuntu Nginx if running
 sudo systemctl stop nginx 2>/dev/null || true
 
-# 2. Cài đặt các gói phụ thuộc để biên dịch
+# 2. Install build dependencies
 sudo apt-get update
 sudo apt-get install -y build-essential libpcre2-dev zlib1g-dev libssl-dev curl wget
 
@@ -22,13 +22,13 @@ rm -rf "nginx-${NGINX_VER}"
 tar -xzf "nginx-${NGINX_VER}.tar.gz"
 cd "nginx-${NGINX_VER}"
 
-echo "--> Can thiệp mã nguồn C để thay đổi Server Signature ở cấp độ nhị phân..."
+echo "--> Patching C source code to customize Server Signature at binary level..."
 sed -i -E "s|#define NGINX_VER[[:space:]]+.*|#define NGINX_VER          \"${CUSTOM_SIG}\"|" src/core/nginx.h
 sed -i -E "s|#define NGINX_VAR[[:space:]]+.*|#define NGINX_VAR          \"${CUSTOM_VAR}\"|" src/core/nginx.h
 sed -i -E "s|static u_char ngx_http_server_string\[\] = \"Server: nginx\" CRLF;|static u_char ngx_http_server_string[] = \"Server: ${CUSTOM_SIG}\" CRLF;|" src/http/ngx_http_header_filter_module.c
 sed -i -E "s|static u_char ngx_http_server_full_string\[\] = \"Server: \" NGINX_VER CRLF;|static u_char ngx_http_server_full_string[] = \"Server: ${CUSTOM_SIG}\" CRLF;|" src/http/ngx_http_header_filter_module.c
 
-echo "--> Cấu hình tham số biên dịch tối ưu bảo mật..."
+echo "--> Configuring build flags with security hardening options..."
 ./configure \
     --prefix=/etc/nginx \
     --sbin-path=/usr/local/bin/nginx \
@@ -46,7 +46,7 @@ echo "--> Cấu hình tham số biên dịch tối ưu bảo mật..."
 make -j"$(nproc)"
 sudo make install
 
-echo "--> Tạo cấu hình dịch vụ Systemd và thư mục hệ thống..."
+echo "--> Creating Systemd service configuration and system directories..."
 sudo mkdir -p /var/log/nginx /etc/nginx/conf.d /etc/nginx/sv2 /etc/nginx/ssl
 
 sudo tee /etc/systemd/system/nginx.service > /dev/null << 'UNIT'
@@ -89,4 +89,4 @@ http {
 CONF
 
 sudo systemctl daemon-reload
-echo "=== [SV1] HOÀN TẤT BIÊN DỊCH VÀ CÀI ĐẶT NGINX ==="
+echo "=== [SV1] NGINX BUILD AND INSTALLATION COMPLETED ==="
